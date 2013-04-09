@@ -3,7 +3,7 @@ import urllib2
 import datetime
 import hashlib
 from beanstream.gateway import Beanstream
-from beanstream.billing import CreditCard
+from beanstream.billing import CreditCard, Address
 
 from django.conf import settings
 
@@ -188,8 +188,10 @@ class BeanstreamGateway(Gateway):
         """Store the credit card and user profile information
         on the gateway for future use"""
         card = self.convert_cc(credit_card)
-        billing_address = options.get("billing_address")
+        billing_address = options.get("billing_address") if options else None
         txn = self.beangw.create_payment_profile(card, billing_address)
+        if not billing_address and not hasattr(txn.params, "ordName"):
+            txn.params["ordName"] = credit_card.first_name + " " + credit_card.last_name
 
         resp = txn.commit()
 
