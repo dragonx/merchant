@@ -193,8 +193,13 @@ class BeanstreamGateway(Gateway):
         if not billing_address and not hasattr(txn.params, "ordName"):
             txn.params["ordName"] = credit_card.first_name + " " + credit_card.last_name
 
+        if options.get("validate"):
+            txn.params["cardValidation"] = 1
+
         resp = txn.commit()
 
+        # Similar to _parse_resp except this api has some 
+        # slightly different response values to handle
         status = "FAILURE"
         response = ""
         customer = None
@@ -204,10 +209,18 @@ class BeanstreamGateway(Gateway):
         elif resp.resp["responseCode"] == ["17"]:
             status = "SUCCESS"
             customer = resp.resp["matchedCustomerCode"][0]
-        else:
-            response = resp
 
-        return {"status": status, "response": response, "customer": customer}
+        try:
+            response = "".join(resp.resp.get("messageText"))
+        except:
+            response = None
+        if not response:
+            try:
+                response = resp.get_merchant_message()
+            except:
+                response = "Unrecognized response from Beanstream gateway."
+
+        return {"status": status, "response": response, "respdata": resp.resp, "customer": customer}
 
     def unstore(self, identification, options=None):
         """Delete the previously stored credit card and user
